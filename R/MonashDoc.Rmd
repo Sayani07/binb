@@ -1,52 +1,167 @@
 ---
-title: \small Analysis of sub-daily spatio-temporal probability distributions
+title:  Visualization of sub-daily temporal  probability distributions
 author: \small Sayani Gupta
 date: \small \today
 classoption: compress
-toc: true
+toc: false
 output: binb::monash
+titlefontsize: 12pt
+
 ---
+
+
 
 ```{r setup, include=FALSE}
 library(tidyverse)
 library(sugrrants)
 library(tsibble)
+library(ggridges)
+library(viridis)
+library(forecast)
 knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, cache=TRUE, dev.args=list(bg=grey(0.9), pointsize=8))
 ```
 
-# Motivation
+
+#  30 minutes interval smart meter data from Monash Residential Services from April 4, 2018 to May 31, 2018
 
 
-## When and Where?
 
- - Everything measurable can be interpreted in context to  "when" and "where" - \alert{Time} and \alert{Space}
+##Across days
 
- - Three spatial dimensions and one time dimension
+```{r, out.width="0.3\\linewidth",out.width="100%",include=TRUE, fig.align="center", echo=FALSE}
+knitr::include_graphics("/Users/sgup0008/Documents/MRS_Consumption/B429_files/figure-html/b105_days-1.png")
+```
+
 
 ---
 
-## Challenges in visualizing probability distribution of spatio-temporal variable
+## Across hours, by day of the week
+
+```{r, out.width="0.3\\linewidth", fig.width = 7,out.width="100%",include=TRUE, fig.align="center", echo=FALSE}
+knitr::include_graphics("/Users/sgup0008/Documents/MRS_Consumption/B429_files/figure-html/b105_days_hours-1.png")
+```
+
+---
+
+## Across hours, by work days and non-work days
+
+```{r, out.width="0.3\\linewidth", fig.width = 7,out.width="100%",include=TRUE, fig.align="center", echo=FALSE}
+knitr::include_graphics("/Users/sgup0008/Documents/MRS_Consumption/B429_files/figure-html/b105_Hours-2.png")
+```
+
+
+
+# 15 minutes interval state level smart meter data of Victoria from January, 2002 to December, 2014
+
+## Across half-hours of the day, by year
+
+```{r RidgePlots,echo=FALSE}
+VIC <- read.csv("VIC2015/Data/demand_VIC.csv")
+VIC$Date <- as.Date(VIC$Date,origin = "1899-12-30")
+VIC$dow <- as.POSIXlt(VIC$Date)$wda
+VIC$woy <- lubridate::week(VIC$Date)
+VIC <- VIC %>%  mutate(bow = dow*48 + Period)
+VIC_2015 <- VIC %>% dplyr::filter(lubridate::year(Date) %in% c(2010,2011,2012,2013,2014))
+ggplot(VIC_2015, aes(x = OperationalLessIndustrial, y = as.factor(Period), fill=factor(..quantile..))) +   stat_density_ridges(geom = "density_ridges_gradient", calc_ecdf = TRUE, quantiles = 4, quantile_lines = TRUE) +
+  scale_fill_viridis(discrete = TRUE, name = "Quartiles")  + xlab("Demand") + ylab("Period of the Day") + facet_wrap(~lubridate::year(Date),scales = "free_x",ncol=4) + scale_y_discrete(breaks = seq(1,50,10)) + theme(strip.text = element_text(size = 10, margin = margin()))
+```  
+  
+---
+
+##Boxplot statistics superimposed on data
+
+<!-- ```{r, echo=FALSE} -->
+
+<!-- p3<- s1 %>% filter(Source=="B4 29")%>% ggplot(aes(x=as.factor(hour),y=Value)) + geom_boxplot() -->
+
+<!-- data_boxplot_raw <- cbind(hour = seq(1,24,1) -->
+<!--             , upper = ggplot_build(p3)$data[[1]]$upper -->
+<!--             , ymax = ggplot_build(p3)$data[[1]]$ymax -->
+<!--             , middle = ggplot_build(p3)$data[[1]]$middle -->
+<!--             , ymin = ggplot_build(p3)$data[[1]]$ymin -->
+<!--             ,lower = ggplot_build(p3)$data[[1]]$lower) -->
+<!--  p4 <- as_tibble(data_boxplot_raw) %>% group_by(hour) %>%  gather("Computed_variables","Values",upper,ymax,middle,ymin,lower) %>% ggplot(aes(x=hour, y=Values,col = as.factor(Computed_variables) )) + scale_color_brewer (palette = "Dark2") + geom_line() -->
+
+
+<!-- #Boxplot superimposed on Data -->
+
+<!-- s2 <- s1 %>% filter(Source=="B429") -->
+
+
+
+<!-- Mod_data <- as_tibble(data_boxplot_raw) %>% ggplot(aes(hour,upper)) + geom_line(aes(y=upper)) +geom_line(aes(y=lower))+ geom_ribbon(aes(ymin=lower,ymax=upper),fill="#1b9e77",alpha = "0.5") + -->
+<!-- geom_line(aes(y=ymin))+ geom_ribbon(aes(ymin=ymin,ymax=lower),fill="#7570b3",alpha = "0.5") + geom_line(aes(y=ymax))+ geom_ribbon(aes(ymin=upper,ymax=ymax),fill="#7570b3",alpha = "0.5") +  ylab("Load")+ theme(legend.position  = "bottom") + geom_line(aes(y=middle),colour="#d95f02",size=2)  -->
+
+<!-- Mod_data + geom_line(data=s1 %>% filter(Source=="B4 29"),aes(x=hour,y=Value,group=date),colour=alpha("#636363",0.02)) + xlab("Half-hour time blocks") + ylab("Electricity Demand [KWh]") + expand_limits(x=0,y=0) +theme_minimal() -->
+<!-- ``` -->
+
+
+```{r, out.width="100%",include=TRUE, fig.align="center", echo=FALSE}
+knitr::include_graphics("/Users/sgup0008/Documents/Slicing_Dicing_AUD_States/VIC_files/figure-html/Mechanical_1V_Period-3.png")
+```
+
+---
+
+## Arrangement of time 
+
+ - Linear 
+ - Cyclic
+
+
+
+
+```{r b105_days,echo=FALSE}
+
+Data_Halls_Residence <-read_rds("/Users/sgup0008/Documents/MRS_Consumption/DHResidence.rds")
+
+
+selected_units <- Data_Halls_Residence %>% filter(Source %in% c("B1 05","B2 15","B3 37", "B4 29", "BG 50"))
+
+selected_units$`Timestamp UTC` <- ymd_hms(selected_units$`Timestamp UTC`)
+
+selected_units_tsibble <- as_tsibble(selected_units,key=id(Source),index=`Timestamp UTC`,tz="UTC")
+
+
+SU_Date <-selected_units %>% mutate(Date = as.POSIXct(`Timestamp UTC`,  format = "%Y-%m-%d %H:%M"))
+
+date.range = range(selected_units$`Timestamp UTC`)
+
+Reference_time =  seq(
+  from=as.POSIXct(date.range[1], tz='UTC',"%Y-%m-%d %H:%M"),
+  to=as.POSIXct(date.range[2], tz='UTC',"%Y-%m-%d %H:%M"),
+  by='15 min'
+)
+
+
+SU_Date.uniform <- expand.grid(time=Reference_time,
+                          source=unique(SU_Date$Source)) %>%
+  left_join(SU_Date, by=c('time'='Date'), 'source')
+
+
+
+
+vic_holidays <- holiday_aus(2018, state = "VIC")
+SU_uniform_mutate <- SU_Date.uniform %>% mutate(date = date(time),wday = wday(time, label = TRUE, abbr = TRUE,
+                      week_start = 1),
+                      month = month(time, label = TRUE, abbr = TRUE),
+                      year = year(time),
+                      hour = hour(time),work = ifelse(wday %in% c("Mon", "Tue", "Wed", "Thu", "Fri"), 1, 0)) %>%
+                        mutate(work = ifelse(date %in% vic_holidays$date, 0, work))
+
+
+
+ s1 <- SU_uniform_mutate %>% filter(Source=="B4 29") %>% mutate(work = ifelse(wday %in% c("Mon", "Tue", "Wed", "Thu", "Fri"), 1, 0)) %>%
+  mutate(work = ifelse(date %in% vic_holidays$date, 0, work))
  
-- Visualizing probability distribution of a variable in spatio-temporal context accounts to considering five dimensions in aggregate
-
----
-
-## Challenges in visualizing probability distribution of spatio-temporal variable
-
-- Discrete human made abstractions of time like years, months, weeks, days, minutes, seconds and so on in a hierarchical manner increase the complexity of the problem further
-
----
-
-
-## Challenges in visualizing probability distribution of spatio-temporal variable
-
-- Any attempt to encode all facets of the data in a single visual representation is most likely to fail, owing to confusing and overloaded information
+ s2 <- ts(s1$Value,frequency = 48)
  
-\alert{So splitting the big problem into smaller pieces ?}
+ autoplot(s2) + ylab("Total kwh")
+```
 
 
-
-# Looking at time from different angles - Deconstructed temporal data 
+```{r, out.width="100%",include=TRUE, fig.align="center", echo=FALSE}
+knitr::include_graphics("/Users/sgup0008/Documents/Code_Exploration/LinearRplot.png")
+```
 
 
 
@@ -55,11 +170,12 @@ knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, cache=TRUE, de
 \small 
 Data and associated time can be modeled and integrated at different levels of human made abstractions of time called \alert{granularities} (e.g., months, days, hours, and seconds), enabling \alert{display of probability distribution} along granularities
  
-<!-- - Aggregating information across granularities can communicate completely different aspects of data -->
+- Aggregating information across granularities can communicate completely different aspects of data
 
 ---
 
 ## Example of time granularities
+
 
 With bottom-most granularity 30 minutes and upper-most granularity as year, granularities can be thought of as
 
@@ -71,6 +187,7 @@ Hour of the Day/Week/Month/Year: 4
 30-mins of the Hour/Day/Week/Month/Year: 5  
 
 Total number of granularities = (1+2+3+4+5) = 15
+
 
 ---
 
@@ -101,8 +218,6 @@ Ranges of time in subsets have different sample size or too small sample size to
 
 - Choosing time granularities from the bottom of the tree amounts to losing degrees of freedom for displaying so many levels of the granularities
 
-- Plotting irregular time series
-
 
 ```{r VIC_example1, echo=FALSE}
 
@@ -111,44 +226,20 @@ library(tidyverse)
 library(lubridate)
 library(tsibble)
 library(data.tree)
-VIC <- read.csv("../VIC2015/Data/demand_VIC.csv")
+VIC <- read.csv("VIC2015/Data/demand_VIC.csv")
 VIC$Date <- as.Date(VIC$Date,origin = "1899-12-30")
 #range(VIC$Date)
 
 # Week starts from Monday
 VIC <- VIC %>%
   mutate(month = month(Date, label = FALSE, abbr = TRUE), 
-         year =  year(Date),
-         yday =yday(Date),
+         year = year(Date),
+         yday = yday(Date),
          wday = wday(Date, label=FALSE, abbr=TRUE,
                      week_start=1), 
          bow = (wday - 1) * 48 + Period,
          dom = day(Date),
          bom = (dom - 1) * 48 + Period)
-```
-
----
-
-\small
-
-#### Day of the week and half-hour of the month 
-
-```{r VIC_example1_ext, echo=TRUE}
-
-VIC %>% group_by(wday,bom) %>% tally() %>% head()
-```
-
----
-
-
-\small
-
-
-#### Years and months of the year 
-
-```{r VIC_example1_ext2, echo=TRUE}
-
-VIC %>% group_by(year,month) %>% tally()%>% head()
 ```
 
 ---
@@ -181,74 +272,9 @@ Half-hour of the week facetted by half-hour of the day for electricity demand of
 VIC %>% filter(year!=2015) %>%  ggplot(aes(x=as.factor(bow),y=OperationalLessIndustrial)) + geom_jitter() + scale_x_discrete(breaks=seq(1, 366, 80)) + facet_wrap(~Period)+ theme(legend.position = "bottom") + theme(legend.position = "bottom",strip.text = element_text(size = 7, margin = margin())) + theme(text = element_text(size=8))+ xlab("Half-Hour of the Week") + ylab("Energy_Consumption(Kwh)")
 ```
 
-# Possible ways to visualize probability distribution of time granularities 
 
-## Smart Meter Data from MRS
+## Way Forward 
 
-###Across days
-
-
-```{r, out.width="0.3\\linewidth",out.width="100%",include=TRUE, fig.align="center", echo=FALSE}
-knitr::include_graphics("/Users/sgup0008/Documents/MRS_Consumption/B429_files/figure-html/b105_days-1.png")
-```
-
-
----
-
-### Across hours, by day of the week
-
-```{r, out.width="0.3\\linewidth", fig.width = 7,out.width="100%",include=TRUE, fig.align="center", echo=FALSE}
-knitr::include_graphics("/Users/sgup0008/Documents/MRS_Consumption/B429_files/figure-html/b105_days_hours-1.png")
-```
-
----
-
-### Across hours, by day of the week
-
-```{r, out.width="0.3\\linewidth", fig.width = 7,out.width="100%",include=TRUE, fig.align="center", echo=FALSE}
-knitr::include_graphics("/Users/sgup0008/Documents/MRS_Consumption/B429_files/figure-html/b105_Hours-2.png")
-```
-
----
-
-
-\small 
-Boxplot superimposed on Victorian smart meter data
-
-<!-- ```{r, echo=FALSE} -->
-
-<!-- p3<- s1 %>% filter(Source=="B4 29")%>% ggplot(aes(x=as.factor(hour),y=Value)) + geom_boxplot() -->
-
-<!-- data_boxplot_raw <- cbind(hour = seq(1,24,1) -->
-<!--             , upper = ggplot_build(p3)$data[[1]]$upper -->
-<!--             , ymax = ggplot_build(p3)$data[[1]]$ymax -->
-<!--             , middle = ggplot_build(p3)$data[[1]]$middle -->
-<!--             , ymin = ggplot_build(p3)$data[[1]]$ymin -->
-<!--             ,lower = ggplot_build(p3)$data[[1]]$lower) -->
-<!--  p4 <- as_tibble(data_boxplot_raw) %>% group_by(hour) %>%  gather("Computed_variables","Values",upper,ymax,middle,ymin,lower) %>% ggplot(aes(x=hour, y=Values,col = as.factor(Computed_variables) )) + scale_color_brewer (palette = "Dark2") + geom_line() -->
-
-
-<!-- #Boxplot superimposed on Data -->
-
-<!-- s2 <- s1 %>% filter(Source=="B429") -->
-
-
-
-<!-- Mod_data <- as_tibble(data_boxplot_raw) %>% ggplot(aes(hour,upper)) + geom_line(aes(y=upper)) +geom_line(aes(y=lower))+ geom_ribbon(aes(ymin=lower,ymax=upper),fill="#1b9e77",alpha = "0.5") + -->
-<!-- geom_line(aes(y=ymin))+ geom_ribbon(aes(ymin=ymin,ymax=lower),fill="#7570b3",alpha = "0.5") + geom_line(aes(y=ymax))+ geom_ribbon(aes(ymin=upper,ymax=ymax),fill="#7570b3",alpha = "0.5") +  ylab("Load")+ theme(legend.position  = "bottom") + geom_line(aes(y=middle),colour="#d95f02",size=2)  -->
-
-<!-- Mod_data + geom_line(data=s1 %>% filter(Source=="B4 29"),aes(x=hour,y=Value,group=date),colour=alpha("#636363",0.02)) + xlab("Half-hour time blocks") + ylab("Electricity Demand [KWh]") + expand_limits(x=0,y=0) +theme_minimal() -->
-<!-- ``` -->
-
-
-```{r, out.width="0.3\\linewidth", out.width="100%",include=TRUE, fig.align="center", echo=FALSE}
-knitr::include_graphics("/Users/sgup0008/Documents/Slicing_Dicing_AUD_States/VIC_files/figure-html/Mechanical_1V_Period-3.png")
-```
-
-# Way Forward
-
-##Way Forward 
-
-- Defining criterion of plots which mis-represents data
-
-- Studying other attributes of time granularities other than "regularity" which makes a plot misleading
+ * How to define criteria for plots that work vs plots that don't?
+ * How to extend the ideas to allow for spatial as well as time dimensions?
+ * Are there other visual representations of probability distributions that would be suitable?
