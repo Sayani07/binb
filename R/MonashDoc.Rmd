@@ -1,0 +1,254 @@
+---
+title: \small Analysis of sub-daily spatio-temporal probability distributions
+author: \small Sayani Gupta
+date: \small \today
+classoption: compress
+toc: true
+output: binb::monash
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(sugrrants)
+library(tsibble)
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, cache=TRUE, dev.args=list(bg=grey(0.9), pointsize=8))
+```
+
+# Motivation
+
+
+## When and Where?
+
+ - Everything measurable can be interpreted in context to  "when" and "where" - \alert{Time} and \alert{Space}
+
+ - Three spatial dimensions and one time dimension
+
+---
+
+## Challenges in visualizing probability distribution of spatio-temporal variable
+ 
+- Visualizing probability distribution of a variable in spatio-temporal context accounts to considering five dimensions in aggregate
+
+---
+
+## Challenges in visualizing probability distribution of spatio-temporal variable
+
+- Discrete human made abstractions of time like years, months, weeks, days, minutes, seconds and so on in a hierarchical manner increase the complexity of the problem further
+
+---
+
+
+## Challenges in visualizing probability distribution of spatio-temporal variable
+
+- Any attempt to encode all facets of the data in a single visual representation is most likely to fail, owing to confusing and overloaded information
+ 
+\alert{So splitting the big problem into smaller pieces ?}
+
+
+
+# Looking at time from different angles - Deconstructed temporal data 
+
+
+
+## Deconstruction of Time - Time Granularities
+
+\small 
+Data and associated time can be modeled and integrated at different levels of human made abstractions of time called \alert{granularities} (e.g., months, days, hours, and seconds), enabling \alert{display of probability distribution} along granularities
+ 
+<!-- - Aggregating information across granularities can communicate completely different aspects of data -->
+
+---
+
+## Example of time granularities
+
+With bottom-most granularity 30 minutes and upper-most granularity as year, granularities can be thought of as
+
+
+Month of the Year: 1  
+Week of the Month/Year: 2  
+Day of the Week/ Month/Year: 3  
+Hour of the Day/Week/Month/Year: 4  
+30-mins of the Hour/Day/Week/Month/Year: 5  
+
+Total number of granularities = (1+2+3+4+5) = 15
+
+---
+
+## Questions arising when determining the exhaustive number of plots
+
+
+\small 
+
+- Can we plot all 15c2 combinations or 15c3 combinations if we want to draw two or three granularities at a time?
+
+
+- Are there combinations which will misguide us for comparison and should
+not be plotted together?  
+
+- When should we say a plot is misguiding us? Are there any defining criterions?
+
+- What are the attributes of the time granularities which makes a plot misleading?
+
+---
+
+## Criterion for misguidedness
+
+\small 
+
+Ranges of time in subsets have different sample size or too small sample size to construct probability distribution
+
+\small
+
+- Choosing time granularities from the bottom of the tree amounts to losing degrees of freedom for displaying so many levels of the granularities
+
+- Plotting irregular time series
+
+
+```{r VIC_example1, echo=FALSE}
+
+
+library(tidyverse)
+library(lubridate)
+library(tsibble)
+library(data.tree)
+VIC <- read.csv("../VIC2015/Data/demand_VIC.csv")
+VIC$Date <- as.Date(VIC$Date,origin = "1899-12-30")
+#range(VIC$Date)
+
+# Week starts from Monday
+VIC <- VIC %>%
+  mutate(month = month(Date, label = FALSE, abbr = TRUE), 
+         year =  year(Date),
+         yday =yday(Date),
+         wday = wday(Date, label=FALSE, abbr=TRUE,
+                     week_start=1), 
+         bow = (wday - 1) * 48 + Period,
+         dom = day(Date),
+         bom = (dom - 1) * 48 + Period)
+```
+
+---
+
+\small
+
+#### Day of the week and half-hour of the month 
+
+```{r VIC_example1_ext, echo=TRUE}
+
+VIC %>% group_by(wday,bom) %>% tally() %>% head()
+```
+
+---
+
+
+\small
+
+
+#### Years and months of the year 
+
+```{r VIC_example1_ext2, echo=TRUE}
+
+VIC %>% group_by(year,month) %>% tally()%>% head()
+```
+
+---
+
+### Plotting irregular time granularities
+
+\small
+
+Half hours of the week facetted by days of the month for state level electricity demand of Victoria for 2014
+
+\small
+
+```{r nosense_eg3, echo=FALSE}
+
+VIC%>% filter(year==2014) %>%  ggplot(aes(x=bow, y=OperationalLessIndustrial)) + facet_wrap(~dom)+ geom_line() + scale_x_continuous(breaks=seq(1,336,80)) +theme(text = element_text(size=8)) +theme(legend.position = "bottom",strip.text = element_text(size = 7, margin = margin())) + xlab("Half-Hour of the Week") + ylab("Energy_Consumption(Kwh)")
+```
+
+---
+
+### Incomplete design introduced by superflous gaps
+
+\small
+
+Half-hour of the week facetted by half-hour of the day for electricity demand of Victoria from 2002 to 2014
+
+\small
+
+```{r nosense_eg1, echo=FALSE}
+
+VIC %>% filter(year!=2015) %>%  ggplot(aes(x=as.factor(bow),y=OperationalLessIndustrial)) + geom_jitter() + scale_x_discrete(breaks=seq(1, 366, 80)) + facet_wrap(~Period)+ theme(legend.position = "bottom") + theme(legend.position = "bottom",strip.text = element_text(size = 7, margin = margin())) + theme(text = element_text(size=8))+ xlab("Half-Hour of the Week") + ylab("Energy_Consumption(Kwh)")
+```
+
+# Possible ways to visualize probability distribution of time granularities 
+
+## Smart Meter Data from MRS
+
+###Across days
+
+
+```{r, out.width="0.3\\linewidth",out.width="100%",include=TRUE, fig.align="center", echo=FALSE}
+knitr::include_graphics("/Users/sgup0008/Documents/MRS_Consumption/B429_files/figure-html/b105_days-1.png")
+```
+
+
+---
+
+### Across hours, by day of the week
+
+```{r, out.width="0.3\\linewidth", fig.width = 7,out.width="100%",include=TRUE, fig.align="center", echo=FALSE}
+knitr::include_graphics("/Users/sgup0008/Documents/MRS_Consumption/B429_files/figure-html/b105_days_hours-1.png")
+```
+
+---
+
+### Across hours, by day of the week
+
+```{r, out.width="0.3\\linewidth", fig.width = 7,out.width="100%",include=TRUE, fig.align="center", echo=FALSE}
+knitr::include_graphics("/Users/sgup0008/Documents/MRS_Consumption/B429_files/figure-html/b105_Hours-2.png")
+```
+
+---
+
+
+\small 
+Boxplot superimposed on Victorian smart meter data
+
+<!-- ```{r, echo=FALSE} -->
+
+<!-- p3<- s1 %>% filter(Source=="B4 29")%>% ggplot(aes(x=as.factor(hour),y=Value)) + geom_boxplot() -->
+
+<!-- data_boxplot_raw <- cbind(hour = seq(1,24,1) -->
+<!--             , upper = ggplot_build(p3)$data[[1]]$upper -->
+<!--             , ymax = ggplot_build(p3)$data[[1]]$ymax -->
+<!--             , middle = ggplot_build(p3)$data[[1]]$middle -->
+<!--             , ymin = ggplot_build(p3)$data[[1]]$ymin -->
+<!--             ,lower = ggplot_build(p3)$data[[1]]$lower) -->
+<!--  p4 <- as_tibble(data_boxplot_raw) %>% group_by(hour) %>%  gather("Computed_variables","Values",upper,ymax,middle,ymin,lower) %>% ggplot(aes(x=hour, y=Values,col = as.factor(Computed_variables) )) + scale_color_brewer (palette = "Dark2") + geom_line() -->
+
+
+<!-- #Boxplot superimposed on Data -->
+
+<!-- s2 <- s1 %>% filter(Source=="B429") -->
+
+
+
+<!-- Mod_data <- as_tibble(data_boxplot_raw) %>% ggplot(aes(hour,upper)) + geom_line(aes(y=upper)) +geom_line(aes(y=lower))+ geom_ribbon(aes(ymin=lower,ymax=upper),fill="#1b9e77",alpha = "0.5") + -->
+<!-- geom_line(aes(y=ymin))+ geom_ribbon(aes(ymin=ymin,ymax=lower),fill="#7570b3",alpha = "0.5") + geom_line(aes(y=ymax))+ geom_ribbon(aes(ymin=upper,ymax=ymax),fill="#7570b3",alpha = "0.5") +  ylab("Load")+ theme(legend.position  = "bottom") + geom_line(aes(y=middle),colour="#d95f02",size=2)  -->
+
+<!-- Mod_data + geom_line(data=s1 %>% filter(Source=="B4 29"),aes(x=hour,y=Value,group=date),colour=alpha("#636363",0.02)) + xlab("Half-hour time blocks") + ylab("Electricity Demand [KWh]") + expand_limits(x=0,y=0) +theme_minimal() -->
+<!-- ``` -->
+
+
+```{r, out.width="0.3\\linewidth", out.width="100%",include=TRUE, fig.align="center", echo=FALSE}
+knitr::include_graphics("/Users/sgup0008/Documents/Slicing_Dicing_AUD_States/VIC_files/figure-html/Mechanical_1V_Period-3.png")
+```
+
+# Way Forward
+
+##Way Forward 
+
+- Defining criterion of plots which mis-represents data
+
+- Studying other attributes of time granularities other than "regularity" which makes a plot misleading

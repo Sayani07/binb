@@ -1,0 +1,513 @@
+\documentclass[11pt]{article}
+%\usepackage[colorlinks=false]{hyperref}
+\usepackage{debscons,multicol,todonotes}
+\usepackage{fancyvrb,longtable,wrapfig}
+%\usepackage[bibstyle=hytex,citestyle=authoryear,natbib=true]{biblatex}
+
+\usepackage[style=authoryear-comp,minnames=1,maxnames=3,maxbibnames=99,
+natbib=true,firstinits=true,terseinits=true,labeldate=true,uniquename=false,
+dashed=false,doi=false,isbn=false,backend=biber]{biblatex}
+
+\renewcommand\bibinitdelim{\addnbthinspace}
+\DeclareFieldFormat{url}{\url{#1}}
+\DeclareFieldFormat[article]{pages}{#1}
+\DeclareFieldFormat[inproceedings]{pages}{\lowercase{pp.}#1}
+\DeclareFieldFormat[incollection]{pages}{\lowercase{pp.}#1}
+\DeclareFieldFormat[article]{volume}{\mkbibbold{#1}}
+\DeclareFieldFormat[article]{number}{\mkbibparens{#1}}
+\DeclareFieldFormat[article]{title}{\MakeCapital{#1}}
+\DeclareFieldFormat[article]{url}{}
+\DeclareFieldFormat[inproceedings]{title}{#1}
+\DeclareFieldFormat{shorthandwidth}{#1}
+\DeclareFieldFormat{extrayear}{}
+% No dot before number of articles
+\usepackage{xpatch}
+\xpatchbibmacro{volume+number+eid}{\setunit*{\adddot}}{}{}{}
+% Remove In: for an article.
+\renewbibmacro{in:}{%
+  \ifentrytype{article}{}{%
+  \printtext{\bibstring{in}\intitlepunct}}}
+
+\newcommand\possessivecite[1]{\citeauthor{#1}'s (\citeyear{#1})}
+
+%\usepackage{afterpage}
+\usepackage[section,subsection,subsubsection,above]{extraplaceins}
+
+\hypersetup{colorlinks=true,linkcolor=black,citecolor=black,urlcolor=black}
+\setlength{\bibitemsep}{.5ex}
+\setlength{\bibhang}{2em}
+
+\bibliography{Electricity}
+
+\befu
+\graphicspath{{../plot/}}
+\allowdisplaybreaks
+\setlength{\columnsep}{1cm}
+\setcounter{tocdepth}{2}
+
+
+\def\reporttype{Report for}
+
+
+\begin{document}
+\front{Forecasting long-term peak half-hourly electricity demand for Victoria}
+      {\SF\RH}
+      {The Australian Energy Market Operator (AEMO)}
+
+\tableofcontents
+
+\newpage\spacing{1.45}
+
+
+\section*{Summary}\addcontentsline{toc}{section}{Summary}
+
+The Australian Energy Market Operator (AEMO) prepares seasonal peak electricity demand and energy consumption forecasts for the Victoria (VIC) region of the National Electricity Market (NEM)\@. Peak electricity demand and energy consumption in Victoria are subject to a range of uncertainties. The electricity demand experienced each year will vary widely depending upon prevailing weather conditions (and the timing of those conditions) as well as the general randomness inherent in individual usage. This variability can be seen in the difference between the expected peak demand at the 1-in-10-year probability of exceedance (or 10\% PoE) level and the peak demand level we expect to be exceeded 9 in 10 years (or 90\% PoE). The electricity demand forecasts are subject to further uncertainty over time depending upon a range of factors including economic activity, population growth and changing customer behavior. Over the next decade we expect customer behaviour to change in response to changing climate and electricity prices, to changes in technology and measures to reduce carbon intensity.
+
+Our model uses various drivers including recent temperatures at two locations (Melbourne and Frankston), calendar effects and some demographic and economic variables. The report uses a semi-parametric additive model to estimate the relationship between demand and the driver variables. The forecast distributions are obtained using a mixture of seasonal bootstrapping with variable length and random number generation.
+
+This report is part of Monash University's ongoing work with AEMO to develop better forecasting techniques.  As such it should be read as part of a series of reports on modelling and forecasting half-hourly electricity demand. In particular, we focus on illustrating the historical data and forecasting results and discussing the implications of the results in this report. The underlying model and related methodology are explained in our technical report \citep{Tech15}.
+
+The focus of the forecasts presented in this report is operational demand, which is the demand met by local scheduled generating units, semi-scheduled generating units, and non-scheduled intermittent generating units of aggregate capacity larger than 30 MW, and by generation imports to the region. The operational demand excludes the demand met by non-scheduled non-intermittent generating units, non-scheduled intermittent generating units of aggregate capacity smaller than 30 MW, exempt generation (e.g. rooftop solar, gas tri-generation, very small wind farms, etc), and demand of local scheduled loads.
+
+In this report, we estimate the demand models with all information up to February 2015 for the summer and winter season respectively, and we produce seasonal peak electricity demand forecasts for Victoria for the next 20 years. In VIC, the annual peak tends to occur in summer season. The forecasting capacity of the demand model for each season has been verified by reproducing the historical probability distribution of demand.
+
+\newpage
+
+
+\section{Modelling and forecasting electricity demand of summer}
+
+\subsection{Historical data}
+
+\subsubsection{Demand data}
+
+AEMO provided half-hourly Victoria electricity demand values from 2002 to 2015.
+Each day is divided into 48 periods which correspond with NEM settlement periods. Period~1 is midnight to 0:30am Eastern Standard Time.
+
+
+\graph[!b]{width=\textwidth}{demand_summer}{Half-hourly demand data for Victoria from 2002 to 2015. Only data from October--March are shown.}
+
+\graph[!htbp]{width=\textwidth}{dlastyear_summer}{Half-hourly demand data for Victoria for last summer.}
+
+\graph[!htbp]{width=\textwidth}{demmonth_summer}{Half-hourly demand data for Victoria, January 2015.}
+
+We define the period October--March as ``summer'' for the purposes of this report. Only data from October--March were retained for summer analysis and modelling. All data from April--September for each year were omitted. Thus each ``year'' consists of 182 days.
+
+Time plots of the half-hourly demand data are plotted in Figures~\ref{demand_summer}--\ref{demmonth_summer}. These clearly show the intra-day pattern (of length 48) and the weekly seasonality (of length $48\times7 = 336$); the annual seasonality (of length $48\times182=8736$) is less obvious.
+
+AEMO provided half-hourly aggregated major industrial demand data for the summer season which is plotted in Figure~\ref{offset_summer}. Although this load can vary considerably over time, it is not temperature sensitive, thus we do not include this load in the modelling.
+
+%it is generally not correlated to temperature (as shown in Figure~\ref{scatter_IND_summer}), and is largely dependent on production schedule which is not available in this report, thus we do not include this load in the modelling, but will simulate this load using the same method as with non-industrial load.
+
+\graph[!htbp]{width=\textwidth}{offset_summer}{Half-hourly demand data for major industries. 2002--2015.}
+
+%\graph[!htbp]{width=\textwidth}{scatter_IND_summer}{Half-hourly  major industral demand plotted against average temperature (degrees Celsius).}
+
+AEMO provided half-hourly rooftop generation data based on a 1MW solar system in Victoria from 2003 to 2011. This data is shown in Figure~\ref{PVRoam_summer}, and the half-hourly values of total rooftop generation of Victoria from 2003 to 2015 is shown in Figures~\ref{PV_summer}, obtained by integrating the data from the 1MW solar system and the installed capacity of rooftop generation. 
+
+\graph[!htbp]{width=\textwidth}{PVRoam_summer}{Half-hourly rooftop generation data based on a 1MW solar system. 2003--2011.}
+
+\graph[!htbp]{width=\textwidth}{PV_summer}{Half-hourly rooftop generation data. 2003--2015.}
+
+
+\subsubsection{Temperature data and degree days}
+
+AEMO provided half-hourly temperature data for Melbourne and Frankston, from 2002 to 2015. The relationship between demand (excluding major industrial loads) and temperature is shown in Figure~\ref{scatter_summer}.
+
+\graph[!htb]{width=\textwidth}{scatter_summer}{Half-hourly VIC electricity demand (excluding major industrial demand) plotted against average temperature (degrees Celsius).}
+
+The half-hourly temperatures are used to calculate cooling degree days in summer and heating degree days in winter, which will be considered in the seasonal demand model.
+
+For each day, the cooling degrees is defined as the difference between the mean temperature (calculated by taking the average of the daily maximum and minimum values of Melbourne and Frankston average temperature) and $17^\circ$C. If this difference is negative, the cooling degrees is set to zero. These values are added up for each summer to give the cooling degree-days for the summer, that is,
+\[
+ \text{CD} = \sum\limits_{\text{summer}} \max(0, t_{\text{mean}} - 17^\circ).
+\]
+Accordingly, the heating degrees is defined as the difference between $18^\circ$C and the mean temperature for each day. If this difference is negative, the heating degrees is set to zero. These values are added up for each winter to give the heating degree-days for the winter,
+\[
+\text{HD} = \sum\limits_{\text{winter}} \max(0, 18^\circ - t_{\text{mean}}).
+\]
+
+The historical cooling and heating degree days for summer and winter are calculated in Figure~\ref{ddays}.
+
+\graph[!htb]{width=\textwidth}{ddays}{Cooling (above) and heating (bottom) degree days for summer and winter respectively.}
+
+%\graph[!htbp]{width=\textwidth}{modelecon_summer.pdf}{Actual annual demand and predicted annual demand predicted from the model.}
+
+\subsection{Variable selection for the half-hourly model} \label{sec:variable selec}
+
+To fit the model to the demand excluding major industrial loads, we normalize the half-hourly demand against seasonal average demand of each year. The top panel of Figure~\ref{ddemand_summer} shows the original demand data with the average seasonal demand values shown in red, and the bottom panel shows the half-hourly adjusted demand data.
+
+\graph[!htb]{width=\textwidth}{ddemand_summer}{Top: Half-hourly demand data for Victoria from 2002 to 2015. Bottom: Adjusted half-hourly demand where each year of demand is normalized against seasonal average demand. Only data from October--March are shown.}
+
+We fit a separate model to the adjusted demand data from each half-hourly period. 
+In addition, we allow temperature and day-of-week
+interactions by modelling the demand for work days and non-work days (including weekends and
+holidays) separately.
+Specific features of the models we consider are summarized below.
+\biz\itemsep=0cm
+\item We model the logarithm of adjusted demand rather than raw demand values. Better forecasts were obtained this way and the model is easy to interpret as the temperature and calendar variable have a multiplicative effect on demand.
+
+\item Temperature effects are modelled using additive regression splines.
+
+\eiz
+
+The following temperatures \& calendar variables are considered in the model,
+
+\biz
+
+\item Temperatures from the last three hours and the same period from the last six days;
+
+\item The maximum temperature in the last 24 hours, the minimum temperature in the last 24 hours, and the average temperature in the last seven days;
+
+\item Calendar effects include the day of the week, public holidays, days just before or just after public holidays, and the time of the year.
+
+%\item Errors are correlated.
+\eiz
+
+Four boosting steps are adopted to improve the model fitting performance \citep{Tech15}, the linear model in boosting stage 1 contained the following variables:
+
+\biz\itemsep=0cm
+\item the current temperature and temperatures from the last 2 hours;
+
+\item temperatures from the same time period for the last 4 days;
+
+\item the current temperature differential and temperature differential from the last 3 hours;
+
+\item temperature differentials from the same period of previous day;
+
+\item the average temperature in the last seven days;
+
+\item the minimum temperature in the last 24 hours;
+
+\item the day of the week;
+
+\item the holiday  effect;
+
+\item the day of season effect.
+
+\eiz
+
+
+%\graph[!htb]{width=\textwidth}{Rsquared_summer}{The $R^2$ values for each half-hourly model showing the amount of variation in the demand data that is explained with each model.}
+
+%Depending on the time of day, the fitted model explains up to 93\% of the variation in the half-hourly demand data. The remaining variation is due to natural randomness and variation in variables that are not in the model (and may not be measurable). Figure~\ref{Rsquared_summer} shows the $R^2$ values for each half-hourly model showing the amount of variation in the demand data that is explained with each model. Because temperature is a stronger driver during working hours, the $R^2$ values are higher during this period, which is also the peak period of electricity demand.
+%The model works best in the afternoon, the time of the largest demand periods.
+
+%Some of the fitted terms of the model at 3pm are plotted in Figure~\ref{modelcal31_summer}. These show the marginal effect of each variable on the log demand after accounting for all the other variables in the model. The dashed lines show 95\% confidence intervals around each line.
+
+%\graph[!htb]{width=\textwidth}{modelcal31_summer}{Calendar terms in the fitted model at 3pm.}
+
+%\graph[!htb]{width=\textwidth}{modeltemp31_summer}{Temperature terms in the fitted model at 3pm.}
+
+The variables used in the seasonal demand model include per-capita state income, total electricity price and cooling and heating degree days, which is consistent with the energy model by AEMO\@. As explained in our technical report \citep{Tech15}, the price elasticity varies with demand. For VIC, the price elasticity coefficient estimated at the 50\% demand quantile was $-0.08$, while the price elasticity coefficient estimated at the 95\% demand quantile was $-0.08$, indicating price elasticity of peak demand is larger than that applying to the average demand. In this report, therefore, we adjust the price coefficient in the seasonal demand model when forecasting the peak electricity demand. Specifically, we adjust the price coefficient as
+\[
+ c^*_{p}= c_{p} \times 0.08 / 0.08,
+\]
+where $c_{p}$ price coefficient is the original coefficient.
+Then we re-estimate the remaining coefficients using a least squares approach.
+
+
+\subsection{Model predictive capacity}
+
+We investigate the predictive capacity of the model by looking at the fitted values. Figure~\ref{fittedfinal_summer} shows the actual historical demand (top) and the fitted (or predicted) demands. Figure~\ref{fittedmonthfinal_summer} illustrates the model prediction for January 2015. It can be seen that the fitted values follow the actual demand remarkably well, indicating that the vast majority of the variation in the data has been accounted for through the driver variables. Both fitted and actual values shown here are after the major industrial load has been subtracted from the data.
+
+%\graph[!hbt]{width=0.95\textwidth}{fitted_summer}{Time plots of actual and predicted demand.}
+%\graph[!hbt]{width=0.95\textwidth}{fitted_summer_compen}{Time plots of actual and predicted demand after adjustment.}
+\graph[!hbt]{width=0.95\textwidth}{fittedfinal_summer}{Time plots of actual and predicted demand.}
+
+
+%\graph[!p]{width=\textwidth}{fittedmonth_summer}{Actual and predicted demand for January 2015.}
+%\graph[!p]{width=\textwidth}{fittedjan_summer_compen}{Actual and predicted demand after adjustment for January 2015.}
+\graph[!p]{width=\textwidth}{fittedmonthfinal_summer}{Actual and predicted demand for January 2015.}
+
+Note that these ``predicted'' values are not true forecasts as the demand values from these periods were used in constructing the statistical model. Consequently, they tend to be more accurate than what is possible using true forecasts.
+
+
+\subsection{Half-hourly model residuals}
+
+%The time plot of the half-hourly residuals from the linear demand model at the boosting stage 1 is shown in Figure~\ref{hhmodelineares_summer}.
+
+%\graph[!hbt]{width=0.95\textwidth}{hhmodelineares_summer}{Half-hourly residuals (actual -- predicted) from the linear demand model at the boosting stage~1.}
+
+The time plot of the half-hourly residuals from the model is shown in Figure~\ref{hhmodelresfinal_summer}.
+
+%\graph[!hbt]{width=0.95\textwidth}{hhmodelres_summer}{Half-hourly residuals (actual -- predicted) from the model}
+
+\graph[!hbt]{width=0.95\textwidth}{hhmodelresfinal_summer}{Half-hourly residuals (actual -- predicted) from the model}
+
+%The time plot of the half-hourly residuals from the model at boosting stage~3 is shown in Figure~\ref{hhmodelres_summer}. 
+
+%\graph[!hbt]{width=0.95\textwidth}{hhmodelres_summer}{Half-hourly residuals (actual -- predicted) from the demand model at the boosting stage~3.}
+
+%We have evaluated the model performance with boosting by comparing the average out-of-sample mean square error (MSE), which is calculated based on the data from last two summers. According to the results, the MSE of our previous approach (without using boosting) is 0.844, and the MSE after boosting is 0.813. Thus, there is a substantial improvement in forecasting accuracy of the model using the boosting approach.
+
+%\graph[!hbt]{width=0.95\textwidth}{hhmodelresfinal_summer}{Half-hourly residuals (actual -- predicted) from the demand model before adjustment.}
+
+Next we plot the half-hourly residuals against the predicted adjusted log demand in Figure~\ref{resfits2final_summer_result}. That is, we plot
+$e_t$ against $\log(y^*_{t,p})$ where these variables are defined in the demand model \citep{Tech15}.
+%In the presence of potentially changing load factors, we have investigated how the model bias has been changing over the past years, that is, we plot the half-hourly residuals against the predicted adjusted log demand for different periods separately, and the results are shown in Figure~\ref{resfits2_summer}.
+
+
+%\graph[!hbt]{width=15cm}{resfits2_summer_result}{Residuals vs predicted log adjusted demand from model \eqref{model1}. The blue line is an estimate of the bias in the model.}
+
+\graph[!hbt]{width=15cm}{resfits2final_summer_result}{Residuals vs predicted log adjusted demand from the demand model.}
+
+
+\subsection{Modelling and simulation of PV generation}
+
+Figure~\ref{pvVSrad_summer} shows the relationship between the daily PV generation and the daily solar exposure in VIC from 2003 to 2011, and the strong correlation between the two variables is evident. The daily PV generation against daily maximum temperature is plotted for the same period in Figure~\ref{pvVSmaxT_summer}, and we can observe the positive correlation between the two variables. Accordingly, the daily PV exposure and maximum temperature are considered in the PV generation model \citep{Tech15}.
+
+
+\graph[!b]{width=\textwidth}{pvVSrad_summer}{Daily solar PV generation plotted against daily solar exposure data in VIC from 2003 to 2011. Only data from October--March are shown.}
+
+\graph[!b]{width=\textwidth}{pvVSmaxT_summer}{Daily solar PV generation plotted against daily maximum temperature in VIC from 2003 to 2011. Only data from October--March are shown.}
+
+We simulate future half-hourly PV generation in a manner that is consistent with both the available historical data and the future temperature simulations.
+To illustrate the simulated half-hourly PV generation, we plot the boxplot of simulated PV output based on a 1~MW solar system in Figure~\ref{PVBoxplotSim_summer}, while the boxplot of the historical ROAM data based on a 1~MW solar system is shown in Figure~\ref{PVBoxplotHis_summer}. Comparing the two figures, we can see that the main features of the two data sets are generally consistent. Some more extreme values are seen in the simulated data set --- these arise because there are many more observations in the simulated data set, so the probability of extremes occurring somewhere in the data is much higher. However, the quantiles are very similar in both plots showing that the underlying distributions are similar.
+
+\graph[!b]{width=\textwidth}{PVBoxplotHis_summer}{Boxplot of historical PV output based on a 1 MW solar system. Only data from October--March are shown.}
+
+\graph[!b]{width=\textwidth}{PVBoxplotSim_summer}{Boxplot of simulated PV output based on a 1 MW solar system. Only data from October--March are shown.}
+
+
+\subsection{Probability distribution reproduction}
+
+To validate the effectiveness of the proposed temperature simulation, we reproduce the probability distribution of historical demand using known economic values but simulating temperatures, and then compare with the real demand data.
+
+\graph[!htbp]{width=\textwidth}{poehisall_summer}{PoE levels of demand excluding offset loads for all years of historical data using known economic values but simulating temperatures.}
+
+%\graph[!htbp]{width=\textwidth}{poehisallPVinc_summer}{PoE levels of demand excluding offset loads for all years of historical data using known economic values but simulating temperatures.}
+
+\graph[!htbp]{width=\textwidth}{cdfhisweek3_summer}{Probability distribution of the weekly maximum demand for all years of historical data using known economic values but simulating temperatures.}
+
+
+Figure~\ref{poehisall_summer} shows PoE levels for all years of historical data using known economic values but simulating temperatures. These are based on the distribution of the seasonal maximum in each year. Figure~\ref{cdfhisweek3_summer} shows similar levels for the weekly maximum demand. Of the 13 historical seasonal maximum demand values, there are 9 seasonal maximums above the 50\% PoE level, 2 seasonal maximums above the 10\% PoE levels and no seasonal maximums below the 90\% PoE level. It can be inferred that the results in Figure~\ref{poehisall_summer} and Figure~\ref{cdfhisweek3_summer} are within the ranges that would occur by chance with high probability if the forecast distributions are accurate. This provides good evidence that the forecast distributions will be reliable for future years.
+
+%{\spacing{1}\tabcolsep=0.12cm\footnotesize
+%\input ./plot/pobabove10.tex
+%\input ./plot/pobbelow50.tex
+%\endgroup
+%}
+
+\subsection{Demand forecasting}\label{sec:forecast}
+
+Forecasts of the distribution of demand are computed by simulation from the fitted model as described in \citet{Tech15}.
+
+The temperatures at Melbourne and Frankston are simulated from historical values observed in 2002--2015 using a double seasonal bootstrap with variable length as described in \citet{Tech15}. The temperature bootstrap is designed to capture the serial correlation that is present in the data due to weather systems moving across Victoria. We also add a small amount of noise to the simulated temperature data to allow temperatures to be as high as any observed since 1900. A total of more than 1000 years of temperature profiles were generated in this way for each year to be forecast.
+
+In this report, some simple climate change adjustments are made to allow for the possible effects of global warming. Estimates were taken from CSIRO modelling (Climate Change in Australia). The shifts in temperature till 2030 for mainland Australia are predicted to be 0.6$^\circ$C, 0.9$^\circ$C and 1.3$^\circ$C for the 10th percentile, 50th percentile and 90th percentile respectively, and the shifts in temperature till 2030 for Tasmania are predicted to be 0.5$^\circ$C, 0.8$^\circ$C and 1.0$^\circ$C for the 10th percentile, 50th percentile and 90th percentile respectively \citep{CSIROTemp2015}. The temperature projections are given relative to the period 1986--2005 (referred to as the 1995 baseline for convenience). These shifts are implemented linearly from 2015 to 2035. CSIRO predicts that the change in the standard deviation of temperature will be minimal in Australia. This matches work by \citep{Raisanen02}.
+
+Three different scenarios for population, GSP, total electricity price, major industrial loads and installed capacity of rooftop photo-voltaic (PV) cells are considered.
+The historical and assumed future values for the population, GSP and total electricity price are shown in Figure~\ref{econall_summer}, and the major industrial loads and PV installed capacity are shown in Figure~\ref{LILall_summer} and Figure~\ref{PVall_summer} respectively.
+
+\graph[!htb]{width=\textwidth}{econall_summer}{Three scenarios for Victoria population, GSP and total electricity price.}
+
+\graph[!htb]{width=\textwidth}{LILall_summer}{Three scenarios for major industrial loads.}
+
+\graph[!htb]{width=\textwidth}{PVall_summer}{Three scenarios for installed capacity of rooftop photo-voltaic (PV) cells.}
+
+The major industrial demand is simulated simultaneously with temperature using the same double seasonal bootstrap with variable length \citep{Tech15}. We do not model the major industrial demand as there are no reliable drivers available (this demand is not correlated to temperature). The simulated industrial demand is then scaled so that the 50\% POE and 10\% POE are equal to the projections provided by AEMO.
+Specifically, the simulated major industrial demand $o_{t}$ is transformed using the following linear transformation
+$o^*_{t} = (o_{t}-a)/b$ where $a$ and $b$ are chosen to ensure the 50\% POE and 10\% POE of $o^*_{t}$ are equal to the projected values. If $\bar{o}_t$ denotes the projected 50\% POE, $o^*_t$ denotes the projected 10\% POE, and $o_t^+$ is the 10\% POE of the simulated $o_{t}$, $o_t^-$ is the 50\% POE of the simulated $o_{t}$,
+then $b = (o^+_t - o^-_t)/(o^*_t-\bar{o}_t)$ and $a = o^-_t - b\bar{o}_t$.
+
+The simulated temperatures, known calendar effects, assumed values of GSP, electricity price and PV installed capacity and simulated residuals are all combined using the fitted statistical model to give simulated electricity demand for every half-hourly period in the years to be forecast. Thus, we are predicting what could happen in the years 2015/16--2034/35 under these fixed economic and demographic conditions, but allowing for random variation in temperature events and other conditions.
+
+
+\subsubsection{Probability distributions}
+
+%In this report, we calculate the forecast distributions of the half-hourly demand for the seasonal non-industrial maximum half-hourly demand.
+
+Figure~\ref{anndensity_summer} shows the simulated seasonal maximum demand densities for 2015/16--2034/35, and Figure~\ref{Qpann_summer} shows quantiles of prediction of seasonal maximum demand.
+
+
+\graph[!hbt]{width=\textwidth}{anndensity_summer}{Distribution of simulated seasonal maximum demand for 2015/16--2034/35.}
+
+
+\graph[!hbt]{width=\textwidth}{Qpann_summer}{Quantiles of prediction of seasonal maximum demand for 2015/16--2034/35.}
+
+
+\subsubsection{Probability of exceedance}\label{sec:poe}
+
+AEMO also requires calculation of ``probability of exceedance'' levels. These can now be obtained from the simulated data. Suppose we are interested in the level $x$ such that the probability of the maximum demand exceeding $x$ over a 1-year period is $p$. 
+
+If $Y_1,\dots,Y_m$ denote $m$ simulated seasonal maxima from a given year, then we can estimate $x$ as the $q$th quantile of the distribution of $\{Y_1,\dots,Y_m\}$ where $q=1-p$ \citep{HF96}. 
+
+PoE values based on the seasonal maxima are plotted in Figure~\ref{poeallplus(new)_summer}, along with the historical PoE values and the observed seasonal maximum demand values. Figure~\ref{poeallplus(new)week_summer} shows similar levels for the weekly maximum demand.
+
+\graph[!htbp]{width=\textwidth}{poeallplus(new)_summer}{Probability of exceedance values for past and future years. Forecasts based on the base scenario are shown as solid lines; forecasts based on the low scenario are shown as dashed lines; Forecasts based on the high scenario are shown as dotted lines.}
+
+%\graph[!htbp]{width=\textwidth}{poeallplus(new)_NonInd_summer}{Probability of exceedance values for past and future years. Forecasts based on the base scenario are shown as solid lines; forecasts based on the low scenario are shown as dashed lines; Forecasts based on the high scenario are shown as dotted lines.}
+
+%\graph[!htbp]{width=\textwidth}{poeallplus(new)-PVinc_summer}{Probability of exceedance values for past and future years. Forecasts based on the base scenario are shown as solid lines; forecasts based on the low scenario are shown as dashed lines; Forecasts based on the high scenario are shown as dotted lines.}
+
+\graph[!htbp]{width=\textwidth}{poeallplus(new)week_summer}{Probability distribution levels for past and future years. Forecasts based on the base scenario are shown as solid lines; forecasts based on the low scenario are shown as dashed lines; Forecasts based on the high scenario are shown as dotted lines.}
+
+It should be noted that all of the PoE values given in the tables in this report are conditional on the economic and demographic driver variables observed in those years. They are also conditional on the fitted model. However, they are not conditional on the observed temperatures. They take into account the possibility of different temperature patterns from those observed.
+
+\clearpage
+
+
+\section{Modelling and forecasting electricity demand of winter}
+
+\subsection{Historical data}
+
+We define the period April--September as ``winter'' for the purposes of this report. Only data from April--September were retained for analysis and modelling winter demand. Thus, each ``year'' consists of 183 days.
+
+Time plots of the half-hourly demand data are plotted in Figures~\ref{demand_winter}--\ref{demmonth_winter}. These clearly show the intra-day pattern (of length 48) and the weekly seasonality (of length $48\times7 = 336$); the seasonal seasonality (of length $48\times183=8784$) is less obvious.
+
+\graph[!b]{width=\textwidth}{demand_winter}{Half-hourly demand data for Victoria from 2002 to 2015. Only data from April--September are shown.}
+
+\graph[!htbp]{width=\textwidth}{dlastyear_winter}{Half-hourly demand data for Victoria for last winter.}
+
+\graph[!htbp]{width=\textwidth}{demmonth_winter}{Half-hourly demand data for Victoria, July 2014.}
+
+
+The half-hourly aggregated major industrial demand is given in Figure~\ref{offset_winter}.
+
+
+\graph[!htbp]{width=\textwidth}{offset_winter}{Half-hourly demand data for aggregated major industries from 2002 to 2015.}
+
+AEMO provided half-hourly rooftop generation data based on a 1MW solar system in Victoria from 2003 to 2011 in Figures~\ref{PVRoam_winter}, and the half-hourly values of total rooftop generation of Victoria from 2003 to 2015 in Figures~\ref{PV_winter}, by integrating the data from the 1MW solar system and the installed capacity of rooftop generation. 
+
+\graph[!htbp]{width=\textwidth}{PVRoam_winter}{Half-hourly rooftop generation data based on a 1MW solar system. 2003--2011.}
+
+\graph[!htbp]{width=\textwidth}{PV_winter}{Half-hourly rooftop generation data. 2003--2015.}
+
+
+The relationship between demand (excluding major industrial loads) and the average temperature is shown in Figure~\ref{scatter_winter}.
+
+\graph[!htb]{width=\textwidth}{scatter_winter}{Half-hourly VIC electricity demand (excluding major industrial demand) plotted against average temperature (degrees Celsius).}
+
+
+\subsection{Variable selection for the half-hourly model}
+
+To fit the model to the demand excluding major industrial loads, we normalize the half-hourly demand against seasonal average demand of each year. The top panel of Figure~\ref{ddemand_winter} shows the original demand data with the average seasonal demand values shown in red, and the bottom panel shows the half-hourly adjusted demand data.
+
+\graph[!htb]{width=\textwidth}{ddemand_winter}{Top: Half-hourly demand data for Victoria from 2002 to 2015. Bottom: Adjusted half-hourly demand where each year of demand is normalized against seasonal average demand. Only data from April--September are shown.}
+
+We fit a separate model to the adjusted demand data from each half-hourly period. Four boosting steps are adopted to improve the model fitting performance \citep{Tech15}, the linear model in boosting stage 1 contained the following variables:
+\biz\itemsep=0cm
+\item the current temperature and temperatures from the last 2.5 hours;
+
+\item temperatures from the same time period for the last 6 days;
+
+\item the current temperature differential and temperature differentials from the last 3 hours;
+
+\item temperature differentials from the same period of previous 4 days;
+
+\item the maximum temperature in the last 24 hours;
+
+\item the minimum temperature in the last 24 hours;
+
+\item the average temperature in the last 24 hours;
+
+\item the day of the week;
+
+\item the holiday  effect;
+
+\item the day of season effect.
+\eiz
+
+
+\subsection{Model predictive capacity}
+
+We investigate the predictive capacity of the model by looking at the fitted values. Figure~\ref{fittedfinal_winter} shows the actual historical demand (top) and the fitted (or predicted) demands for the entire winter season. Figure~\ref{fittedmonthfinal_winter} illustrates the model prediction for July 2014. It can be seen that the actual and fitted values are almost indistinguishable, indicating that the vast majority of the variation in the data has been accounted for through the driver variables. Both fitted and actual values shown here are after the major industrial load has been subtracted from the data.
+
+%\graph[!hbt]{width=0.95\textwidth}{fitted_winter}{Time plots of actual and predicted demand.}
+\graph[!hbt]{width=0.95\textwidth}{fittedfinal_winter}{Time plots of actual and predicted demand.}
+
+%\graph[!p]{width=\textwidth}{fittedmonth_winter}{Actual and predicted demand for July 2014.}
+\graph[!p]{width=\textwidth}{fittedmonthfinal_winter}{Actual and predicted demand for July 2014.}
+
+
+Note that these ``predicted'' values are not true forecasts as the demand values from these periods were used in constructing the statistical model. Consequently, they tend to be more accurate than what is possible using true forecasts.
+
+
+\subsection{Half-hourly model residuals}
+
+The time plot of the half-hourly residuals from the demand model is shown shown in Figure~\ref{hhmodelres_winter}.
+
+\graph[!hbt]{width=0.95\textwidth}{hhmodelres_winter}{Half-hourly residuals (actual -- predicted) from the demand model.}
+
+Next we plot the half-hourly residuals against the predicted adjusted log demand in Figure~\ref{resfits2_winter_result}. That is, we plot
+$e_t$ against $\log(y^*_{t,p})$ where these variables are defined in the demand model \citep{Tech15}.
+
+%\graph[!hbt]{width=15cm}{resfits2_winter_result}{Residuals vs predicted log adjusted demand from model \eqref{model1}. The blue line is an estimate of the bias in the model.}
+
+%\graph[!hbt]{width=15cm}{resfits2final_winter_result}{Residuals vs predicted log adjusted demand from the demand model.}
+\graph[!hbt]{width=15cm}{resfits2_winter_result}{Residuals vs predicted log adjusted demand from the demand model.}
+
+
+\subsection{Modelling and simulation of PV generation}
+
+Figure~\ref{pvVSrad_winter} shows the relationship between the daily PV generation and the daily solar exposure in VIC from 2003 to 2011, and the strong correlation between the two variables is evident. The daily PV generation against daily maximum temperature is plotted for the same period in Figure~\ref{pvVSmaxT_winter}, and we can observe the positive correlation between the two variables. Accordingly, the daily PV exposure and maximum temperature are considered in the PV generation model \citep{Tech15}.
+
+
+\graph[!b]{width=\textwidth}{pvVSrad_winter}{Daily solar PV generation plotted against daily solar exposure data in VIC from 2003 to 2011. Only data from April--September are shown.}
+
+\graph[!b]{width=\textwidth}{pvVSmaxT_winter}{Daily solar PV generation plotted against daily maximum temperature in VIC from 2003 to 2011. Only data from April--September are shown.}
+
+We simulate future half-hourly PV generation in a manner that is consistent with both the available historical data and the future temperature simulations.
+To illustrate the simulated half-hourly PV generation, we plot the boxplot of simulated PV output based on a 1~MW solar system in Figure~\ref{PVBoxplotSim_winter}, while the boxplot of the historical ROAM data based on a 1~MW solar system is shown in Figure~\ref{PVBoxplotHis_winter}. Comparing the two figures, we can see that the main features of the two data sets are generally consistent. Some more extreme values are seen in the simulated data set --- these arise because there are many more observations in the simulated data set, so the probability of extremes occurring somewhere in the data is much higher. However, the quantiles are very similar in both plots showing that the underlying distributions are similar.
+
+\graph[!b]{width=\textwidth}{PVBoxplotHis_winter}{Boxplot of historical PV output based on a 1 MW solar system. Only data from April--September are shown.}
+
+\graph[!b]{width=\textwidth}{PVBoxplotSim_winter}{Boxplot of simulated PV output based on a 1 MW solar system. Only data from April--September are shown.}
+
+
+\subsection{Probability distribution reproduction}
+
+To validate the effectiveness of the proposed temperature simulation, we reproduce the probability distribution of historical demand using known economic values but simulating temperatures, and then compare with the real demand data.
+
+\graph[!htbp]{width=\textwidth}{poehisall_winter}{PoE levels of demand excluding offset loads for all years of historical data using known economic values but simulating temperatures.}
+%\graph[!htbp]{width=\textwidth}{poehisallPVinc_winter}{PoE levels of demand including offset loads for all years of historical data using known economic values but simulating temperatures.}
+
+\graph[!htbp]{width=\textwidth}{cdfhisweek3_winter}{Probability distribution of the weekly maximum demand for all years of historical data using known economic values but simulating temperatures.}
+
+
+Figure~\ref{poehisall_winter} shows PoE levels for all years of historical data using known economic values but simulating temperatures. These are based on the distribution of the seasonal maximum in each year. Figure~\ref{cdfhisweek3_winter} shows similar levels for the weekly maximum demand. Of the 12 historical seasonal maximum demand values, there are 6 seasonal maximums above the 50\% PoE level, 1 seasonal maximums above the 10\% PoE levels and no seasonal maximums below the 90\% PoE level. 
+It can be inferred that the results in Figure~\ref{poehisall_summer} and Figure~\ref{cdfhisweek3_summer} are within the ranges that would occur by chance with high probability if the forecast distributions are accurate. This provides good evidence that the forecast distributions will be reliable for future years.
+
+
+\subsection{Demand forecasting}\label{sec:forecast}
+
+
+\subsubsection{Probability distributions}
+
+The historical and assumed future values for the population, GSP and total electricity price are shown in Figure~\ref{econall_winter}, and the major industrial loads and PV installed capacity are shown in Figure~\ref{LILall_winter} and Figure~\ref{PVall_winter} respectively.
+
+\graph[!htb]{width=\textwidth}{econall_winter}{Three future scenarios for Victoria population, GSP and total electricity price.}
+
+\graph[!htb]{width=\textwidth}{LILall_winter}{Three scenarios for major industrial loads.}
+
+\graph[!htb]{width=\textwidth}{PVall_winter}{Three scenarios for installed capacity of rooftop photo-voltaic (PV) cells.}
+
+%In this report, we calculate the forecast distributions of the half-hourly demand for the seasonal non-industrial maximum half-hourly demand.
+
+Figure~\ref{anndensity_winter} shows the simulated seasonal maximum demand densities for 2015 -- 2034, and Figure~\ref{Qpann_winter} shows quantiles of prediction of seasonal maximum demand.
+
+\graph[!hbt]{width=\textwidth}{anndensity_winter}{Distribution of simulated seasonal maximum demand for 2015 -- 2034.}
+
+
+\graph[!hbt]{width=\textwidth}{Qpann_winter}{Quantiles of prediction of seasonal maximum demand for 2015 -- 2034.}
+
+
+\subsubsection{Probability of exceedance}\enlargethispage*{0.5cm}
+
+PoE values based on the seasonal maxima are plotted in Figure~\ref{poeallplus(new)_winter}, along with the historical PoE values and the observed seasonal maximum demand values. Figure~\ref{poeallplus(new)week_winter} shows similar levels for the weekly maximum demand.
+
+\graph[!htbp]{width=\textwidth}{poeallplus(new)_winter}{Probability of exceedance values for past and future years. Forecasts based on the base scenario are shown as solid lines; forecasts based on the low scenario are shown as dashed lines; Forecasts based on the high scenario are shown as dotted lines.}
+
+%\graph[!htbp]{width=\textwidth}{poeallplus(new)_nonIND_winter}{Probability of exceedance values for past and future years. Forecasts based on the base scenario are shown as solid lines; forecasts based on the low scenario are shown as dashed lines; Forecasts based on the high scenario are shown as dotted lines.}
+
+%\graph[!htbp]{width=\textwidth}{poeallplus(new)-PVinc_winter}{Probability of exceedance values for past and future years. Forecasts based on the base scenario are shown as solid lines; forecasts based on the low scenario are shown as dashed lines; Forecasts based on the high scenario are shown as dotted lines.}
+
+\graph[!htbp]{width=\textwidth}{poeallplus(new)week_winter}{Probability of exceedance values for past and future years. Forecasts based on the base scenario are shown as solid lines; forecasts based on the low scenario are shown as dashed lines; Forecasts based on the high scenario are shown as dotted lines.}
+
+\clearpage
+
+
+\defbibheading{references}{\section*{References}\addcontentsline{toc}{section}{References}}
+\printbibliography[heading=references]
+
+\end{document}
